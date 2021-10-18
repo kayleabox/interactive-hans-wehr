@@ -1,0 +1,20 @@
+{
+  "name": "interactive-hans-wehr",
+  "version": "1.0.0",
+  "description": "App that allows you to easily interact with and use Hans Wehr as a resource.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kayleabox/interactive-hans-wehr.git"
+  },
+  "author": "kayleabox",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kayleabox/interactive-hans-wehr/issues"
+  },
+  "homepage": "https://github.com/kayleabox/interactive-hans-wehr#readme",
+  "dependencies": {}
+}
