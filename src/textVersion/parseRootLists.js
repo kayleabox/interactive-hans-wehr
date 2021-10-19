@@ -13,7 +13,7 @@ const isNumberic = /^\d+$/;
 
 const linesArray = hansWehrText.split('\n');
 
-const { twoLetterRootsArray,  threeLetterRootsArray, fourLetterRootsArray } = parseRootLists(linesArray);
+const { twoLetterRootsArray,  threeLetterRootsArray, fourLetterRootsArray, longRootsArray } = parseRootLists(linesArray);
 // const threeLetterRootsWithLongVowels = getThreeLetterRootsWithLongVowels(threeLetterRootsArray);
 
 const sortedThreeLetterRootSet = new Set([...threeLetterRootsArray].sort());
@@ -23,6 +23,7 @@ console.log(`line count: ${linesArray.length}`);
 fs.writeFileSync('src/textVersion/parsedFiles/twoLetterRoots.txt', twoLetterRootsArray.join('\n'), 'utf-8');
 fs.writeFileSync('src/textVersion/parsedFiles/threeLetterRoots.txt', threeLetterRootsArray.join('\n'), 'utf-8');
 fs.writeFileSync('src/textVersion/parsedFiles/fourLetterRoots.txt', fourLetterRootsArray.join('\n'), 'utf-8');
+fs.writeFileSync('src/textVersion/parsedFiles/longRoots.txt', longRootsArray.join('\n'), 'utf-8');
 
 fs.writeFileSync('src/textVersion/parsedFiles/sortedThreeLetterRootSet.txt', [...sortedThreeLetterRootSet].join('\n'), 'utf-8');
 // fs.writeFileSync('src/textVersion/parsedFiles/threeLetterRootsWithLongVowels.txt', threeLetterRootsWithLongVowels.join('\n'), 'utf-8');
@@ -45,6 +46,7 @@ function parseRootLists(lines) {
   const twoLetterRootsArray = [];
   const threeLetterRootsArray = [];
   const fourLetterRootsArray = [];
+  const longRootsArray = [];
   
   lines.forEach(line => {
     const lineWordsArray = line.split(' ');
@@ -64,8 +66,11 @@ function parseRootLists(lines) {
           // two letter root
           if (firstWordArabic.length === 2) {
             // if (twoLetterRootsArray.includes(firstWordArabic)) {}
+            const previousTwoLetterRoot = twoLetterRootsArray[twoLetterRootsArray.length - 1];
 
-            twoLetterRootsArray.push(firstWordArabic);
+            if (twoLetterRootsArray.length === 0 || previousTwoLetterRoot !== firstWordArabic){
+              twoLetterRootsArray.push(firstWordArabic);
+            }
           }
 
           // three letter root
@@ -151,7 +156,7 @@ function parseRootLists(lines) {
 
             // remove hamzas and vowels
             const previousThreeLetterRoot = threeLetterRootsArray.length > 0 ? threeLetterRootsArray[threeLetterRootsArray.length - 1] : '';
-            const includesPreviousRoot = previousThreeLetterRoot.split('').every(char => firstWordArabic.includes(char));
+            const includesPreviousThreeLetterRoot = previousThreeLetterRoot.split('').every(char => firstWordArabic.includes(char));
             let extraChar = '';
             firstWordArabic.split('').forEach((char, i) => {     
               if (i < 3 && char !== previousThreeLetterRoot.split('')[i]) {
@@ -169,16 +174,27 @@ function parseRootLists(lines) {
             // console.log(`includes previous root: ${includesPreviousRoot}`);
             // console.log(`regex result: ${/[\u0620-\u0627|\u0629|\u0648-\u064A]/.test(extraChar)}`);
 
-            if (includesPreviousRoot && /[\u0620-\u0627|\u0629|\u0648-\u064A]/.test(extraChar)) {
+            if (includesPreviousThreeLetterRoot && /[\u0620-\u0627|\u0629|\u0648-\u064A]/.test(extraChar)) {
               const vowelessWord = firstWordArabic.replace(extraChar, '');
               if (previousThreeLetterRoot === vowelessWord) {
                 //console.log(vowelessWord);
               } 
             } else {
-              fourLetterRootsArray.push(firstWordArabic);
+              const previousFourLetterRoot = fourLetterRootsArray[fourLetterRootsArray.length - 1];
+              if(fourLetterRootsArray.length === 0 || previousFourLetterRoot !== firstWordArabic){
+                fourLetterRootsArray.push(firstWordArabic);
+              }
             }
           }
+          
           // super long root!
+          if (firstWordArabic.length > 4) {
+            const previousLongRoot = longRootsArray[longRootsArray.length - 1];
+
+            if (longRootsArray.length === 0 || previousLongRoot !== firstWordArabic){
+              longRootsArray.push(firstWordArabic);
+            }
+          }
 
         } 
     } else if (lineWordsArray.length > 1 && isNumberic.test(firstWord) && firstWord.length === 1){
@@ -192,7 +208,7 @@ function parseRootLists(lines) {
     }
   });
 
-  return {twoLetterRootsArray, threeLetterRootsArray, fourLetterRootsArray};
+  return {twoLetterRootsArray, threeLetterRootsArray, fourLetterRootsArray, longRootsArray};
 }
 
 // // @TODO make this function check that the root is between the previous one and the next one
