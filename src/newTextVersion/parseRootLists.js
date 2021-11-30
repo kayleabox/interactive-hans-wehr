@@ -157,7 +157,6 @@ function parseRootLists(lines) {
           if (
             firstWordArabic.length === 2
             && (twoLetterRootsArray.length === 0 || previousTwoLetterRoot !== firstWordArabic)
-            && firstWordArabic > previousTwoLetterRoot
           ) {
             twoLetterRootsArray.push(firstWordArabic);
             // add the expanded version of two letter roots to a new array for easy comparison
