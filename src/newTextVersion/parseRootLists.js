@@ -8,6 +8,16 @@ const hansWehrText = fs.readFileSync('src/newTextVersion/hansWehr.txt', 'utf8' ,
   return data;
 });
 
+const awzAnf3lText = fs.readFileSync('src/newTextVersion/patterns.txt', 'utf8' , (err, data) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  return data;
+});
+
+const awzAnf3lArray = awzAnf3lText.split('\n');
+
 const isArabic = /[\u0600-\u06FF]/;
 const isNumberic = /^\d+$/;
 
@@ -25,7 +35,7 @@ fs.writeFileSync('src/newTextVersion/parsedFiles/threeLetterRoots.txt', threeLet
 fs.writeFileSync('src/newTextVersion/parsedFiles/fourLetterRoots.txt', fourLetterRootsArray.join('\n'), 'utf-8');
 fs.writeFileSync('src/newTextVersion/parsedFiles/longRoots.txt', longRootsArray.join('\n'), 'utf-8');
 
-function getThreeLetterRootsWithLongVowels(rootArray){
+function getRootsWithLongVowels(rootArray){
     const rootsWithLongVowels = [];
     rootArray.forEach(root => {
       const vowels = ['ا', 'و', 'ي', 'ى'];
@@ -36,7 +46,7 @@ function getThreeLetterRootsWithLongVowels(rootArray){
     return rootsWithLongVowels;
 }
 
-function getThreeLetterRootsWithHamzas(rootArray){
+function getRootsWithHamzas(rootArray){
   const rootsWithHamzas = [];
   rootArray.forEach(root => {
     const hamzas = ['أ', 'إ', 'ئ', 'ء', 'ؤ'];
@@ -66,6 +76,15 @@ function includesWord(currentRoot, previousRoot){
   });
 }
 
+function isPattern(word, root) {
+  const char0 = root[0];
+  const char1 = root[1];
+  const char2 = root[2];
+  const matchingWazan = awzAnf3lArray.find(wazan => word === wazan.replace('ف', char0).replace('ع', char1).replace('ل', char2));
+
+  return matchingWazan ? true : false;
+}
+
 // might need to handle more nuances than this
 function hasSameRoot(currentWord, previousWord){
   const vowels = ['ا', 'و', 'ي', 'ى', 'آ', 'ة'];
@@ -73,14 +92,14 @@ function hasSameRoot(currentWord, previousWord){
 
   const currentWordConsonants = [];
   const currentWordNotConsonants = [];
-  [...currentWord].forEach(char => {
+  [...currentWord.replace('ھ', 'ه')].forEach(char => {
     [...hamzas, ...vowels].includes(char) 
     ? currentWordNotConsonants.push(char) 
     : currentWordConsonants.push(char);
   });
   const previousWordConsonants = [];
   const previousWordNotConsonants = [];
-  [...previousWord].forEach(char => {
+  [...previousWord.replace('ھ', 'ه')].forEach(char => {
     [...hamzas, ...vowels].includes(char) 
     ? previousWordNotConsonants.push(char) 
     : previousWordConsonants.push(char);
@@ -108,8 +127,6 @@ function parseRootLists(lines) {
   lines.forEach(line => {
     const lineWordsArray = line.split(' ');
     const firstWord = lineWordsArray[0];
-    const vowels = ['ا', 'و', 'ي', 'ى', 'آ', 'ة'];
-    const hamzas = ['أ', 'إ', 'ئ', 'ء', 'ؤ'];
   
     if(isArabic.test(firstWord)) {
         let firstWordArabic = firstWord.replace(/[^\u0600-\u06FF]|[\u0651]|[\u060C]/g, '');
@@ -124,62 +141,48 @@ function parseRootLists(lines) {
           const previousFullVersionTwoLetterRoot = fullVersionTwoLetterRootsArray.length > 0 ? fullVersionTwoLetterRootsArray[fullVersionTwoLetterRootsArray.length - 1] : '';
           const previousThreeLetterRoot = threeLetterRootsArray.length > 0 ? threeLetterRootsArray[threeLetterRootsArray.length - 1] : '';
           const previousFourLetterRoot = fourLetterRootsArray.length > 0 ? fourLetterRootsArray[fourLetterRootsArray.length - 1] : '';
-
+          
+          const matchesPreviousThreeLetterRoot = hasSameRoot(firstWordArabic, previousThreeLetterRoot);
+          const matchesPreviousFullTwoLetterRoot = hasSameRoot(firstWordArabic, previousFullVersionTwoLetterRoot);
+          const matchesPreviousTwoLetterRoot = hasSameRoot(firstWordArabic, previousTwoLetterRoot);
+          
           // build root arrays
           
           // two letter root
           // a two letter root can only have two charaters
           // or it can have a repeated character
           // to find these roots, check that the length of the word is 2
-          if (firstWordArabic.length === 2) {
-            // check that last entry in twoLetterRootsArray is not the 
-            // same as the current word to avoid duplicate  entries
-            if (twoLetterRootsArray.length === 0 || previousTwoLetterRoot !== firstWordArabic){
-              twoLetterRootsArray.push(firstWordArabic);
-              // add the expanded version of two letter roots to a new array for easy comparison
-              fullVersionTwoLetterRootsArray.push(firstWordArabic + firstWordArabic[1]);
-            }
+          // check that last entry in twoLetterRootsArray is not the 
+          // same as the current word to avoid duplicate  entries
+          if (
+            firstWordArabic.length === 2
+            && (twoLetterRootsArray.length === 0 || previousTwoLetterRoot !== firstWordArabic)
+            && firstWordArabic > previousTwoLetterRoot
+          ) {
+            twoLetterRootsArray.push(firstWordArabic);
+            // add the expanded version of two letter roots to a new array for easy comparison
+            fullVersionTwoLetterRootsArray.push(firstWordArabic + firstWordArabic[1]);
           }
 
           // three letter root
           // to find these roots, check that the length of the word is 3
-          // and it should not end in 'ة' since that is not part of a root
-          // @TODO if this in not already in twoLetterRootsArray, it should be added
-          if (firstWordArabic.length === 3 && firstWordArabic[2] !== 'ة') {
+          if (firstWordArabic.length === 3) {
             // check that last entry in threeLetterRootsArray is not
             // same as the current word to avoid duplicate entries
             if (threeLetterRootsArray.length === 0 || previousThreeLetterRoot !== firstWordArabic){
-              const matchesPreviousThreeLetterRoot = hasSameRoot(firstWordArabic, previousThreeLetterRoot);
-              const matchesPreviousTwoLetterRoot = hasSameRoot(firstWordArabic, previousTwoLetterRoot);
-
-              if (firstWordArabic === previousFullVersionTwoLetterRoot){
-                // console.log(`previous: ${previousTwoLetterRoot}`);
-                // console.log(`current: ${firstWordArabic}`);                
-              } else if (
-                previousThreeLetterRoot 
-                && matchesPreviousThreeLetterRoot
-              ) {
-                // console.log(`previous: ${previousThreeLetterRoot}`);
-                // console.log(`current: ${firstWordArabic}`);
-              } else if (
-                previousThreeLetterRoot 
-                && vowels.includes(firstWordArabic[1]) 
-                && vowels.includes(previousThreeLetterRoot[2])
-                && previousThreeLetterRoot[0] === firstWordArabic[0]
-                && previousThreeLetterRoot[1].replace('ھ', 'ه') === firstWordArabic[2]               
-              ) { 
-                // console.log(`previous: ${previousThreeLetterRoot}`);
-                // console.log(`current: ${firstWordArabic}`);
-              } else if (
-                matchesPreviousTwoLetterRoot
-                && previousTwoLetterRoot > previousThreeLetterRoot
-                && firstWordArabic < previousThreeLetterRoot
-              ) {
-                // console.log(`previous: ${previousThreeLetterRoot}`);
-                // console.log(`current: ${firstWordArabic}`);
-              } 
-              // This is a real special hack :/
-              else if (firstWordArabic === 'الى' && previousThreeLetterRoot.substr(0, 2) !== 'ال') {
+              if (
+                firstWordArabic === previousFullVersionTwoLetterRoot
+                || matchesPreviousThreeLetterRoot
+                || (
+                  matchesPreviousTwoLetterRoot
+                  && previousTwoLetterRoot > previousThreeLetterRoot
+                  && firstWordArabic < previousThreeLetterRoot
+                ) 
+                || (firstWordArabic === 'الى' && previousThreeLetterRoot.substr(0, 2) !== 'ال')) {
+              } else if(firstWordArabic[2] === 'ة' && !matchesPreviousTwoLetterRoot) {
+                const word = firstWordArabic.slice(0, 2);
+                twoLetterRootsArray.push(word);
+                fullVersionTwoLetterRootsArray.push(word + word[1]);
               } else {
                 threeLetterRootsArray.push(firstWordArabic);
               }
@@ -188,33 +191,27 @@ function parseRootLists(lines) {
 
           // four letter root
           // check that it does not contain the last four letter root
-          // and does not end in 'ة'
-          if (firstWordArabic.length === 4 && firstWordArabic[3] !== 'ة') {
+          if (firstWordArabic.length === 4) {
             // check to see if the four letter root contains the 
-            // previous three letter root and only has vowels
-
-            const matchesPreviousThreeLetterRoot = hasSameRoot(firstWordArabic, previousThreeLetterRoot);
-            const matchesPreviousFullTwoLetterRoot = hasSameRoot(firstWordArabic, previousFullVersionTwoLetterRoot);
-            const matchesPreviousTwoLetterRoot = hasSameRoot(firstWordArabic, previousTwoLetterRoot);
+            // previous three letter root and only has vowels          
 
             if(fourLetterRootsArray.length === 0 || previousFourLetterRoot !== firstWordArabic){
-              if (matchesPreviousThreeLetterRoot) {
-                // console.log(`previous: ${previousThreeLetterRoot}`);
-                // console.log(`current: ${firstWordArabic}`);
-              } else if(matchesPreviousFullTwoLetterRoot) {
+              if (
+                matchesPreviousThreeLetterRoot
+                || matchesPreviousFullTwoLetterRoot
+                || (
+                  matchesPreviousTwoLetterRoot
+                  && previousTwoLetterRoot > previousFourLetterRoot
+                  && firstWordArabic > previousFourLetterRoot
+                )
+              ) {
+
+              } else if(firstWordArabic[3] === 'ة' && !matchesPreviousThreeLetterRoot) {
                 // console.log(`previous: ${previousTwoLetterRoot}`);
                 // console.log(`current: ${firstWordArabic}`);
-              } else if (
-                matchesPreviousTwoLetterRoot
-                && previousTwoLetterRoot > previousFourLetterRoot
-                && firstWordArabic > previousFourLetterRoot
-
-              ) {
-                //  console.log(`previous three: ${previousThreeLetterRoot}`);
-                //  console.log(`previous two: ${previousTwoLetterRoot}`);
-                //  console.log(`current: ${firstWordArabic}`);
+                threeLetterRootsArray.push(firstWordArabic.slice(0, 3));
               } else {
-                  fourLetterRootsArray.push(firstWordArabic);
+                fourLetterRootsArray.push(firstWordArabic);
               }
             }
           }
@@ -225,10 +222,18 @@ function parseRootLists(lines) {
 
             if (longRootsArray.length === 0 || previousLongRoot !== firstWordArabic){
               const matchesPreviousFourLetterRoot = hasSameRoot(firstWordArabic, previousFourLetterRoot);
-              const matchesPreviousThreeLetterRoot = hasSameRoot(firstWordArabic, previousThreeLetterRoot);
-              const matchesPreviousFullTwoLetterRoot = hasSameRoot(firstWordArabic, previousFullVersionTwoLetterRoot);
-              const matchesPreviousTwoLetterRoot = hasSameRoot(firstWordArabic, previousTwoLetterRoot);
               const matchesPreviousLongRoot = hasSameRoot(firstWordArabic, previousLongRoot);
+
+              const twoLetterEnd = ['ان' ,'ئذ' ,'ات'];
+              const threeLetterEnd = ['انى' ,'تئذ' ,'اني', 'ذاك'];
+              const hasEnding = [...twoLetterEnd, ...threeLetterEnd].find(ending => {
+                const testWord = firstWordArabic.slice(0, firstWordArabic.length - ending.length);
+                return firstWordArabic.endsWith(ending) && (
+                  hasSameRoot(testWord, previousLongRoot)
+                  || hasSameRoot(testWord, previousFourLetterRoot)
+                  || hasSameRoot(testWord, previousThreeLetterRoot)
+                );
+              });
 
               if (
                 matchesPreviousLongRoot 
@@ -236,6 +241,7 @@ function parseRootLists(lines) {
                 || matchesPreviousThreeLetterRoot
                 || matchesPreviousFullTwoLetterRoot
                 || matchesPreviousTwoLetterRoot
+                || hasEnding
               ) {
                 // console.log(previousThreeLetterRoot);
                 // console.log(firstWordArabic);
@@ -244,54 +250,11 @@ function parseRootLists(lines) {
               {
                 // console.log(previousThreeLetterRoot);
                 // console.log(firstWordArabic);
-              } else if (['ان' ,'ئذ' ,'ات'].includes(firstWordArabic.slice(firstWordArabic.length - 2))
-                && firstWordArabic.length > 6
-                && hasSameRoot(firstWordArabic.slice(0, firstWordArabic.length - 2), previousLongRoot))
-              {
-                // console.log(previousFourLetterRoot);
-                // console.log(firstWordArabic.slice(0, firstWordArabic.length - 2));
-                // console.log(firstWordArabic);
-              } else if (['ان' ,'ئذ' ,'ات'].includes(firstWordArabic.slice(firstWordArabic.length - 2))
-                && firstWordArabic.length > 5
-                && hasSameRoot(firstWordArabic.slice(0, firstWordArabic.length - 2), previousFourLetterRoot))
-              {
-                // console.log(previousFourLetterRoot);
-                // console.log(firstWordArabic.slice(0, firstWordArabic.length - 2));
-                // console.log(firstWordArabic);
-              } else if (['ان' ,'ات' ,'ئذ'].includes(firstWordArabic.slice(firstWordArabic.length - 2)) 
-                && firstWordArabic.length > 4
-                && hasSameRoot(firstWordArabic.slice(0, firstWordArabic.length - 2), previousThreeLetterRoot))
-              {
-                // console.log(previousThreeLetterRoot);
-                // console.log(firstWordArabic.slice(0, firstWordArabic.length - 2));
-                // console.log(firstWordArabic);'ان'
-              } else if (['انى' ,'تئذ' ,'اني'].includes(firstWordArabic.slice(firstWordArabic.length - 3))
-                && firstWordArabic.length > 7
-                && hasSameRoot(firstWordArabic.slice(0, firstWordArabic.length - 3), previousLongRoot))
-              {
-                // console.log(previousThreeLetterRoot);
-                // console.log(firstWordArabic.slice(0, firstWordArabic.length - 3));
-                // console.log(firstWordArabic);
-              } else if (['انى' ,'تئذ' ,'اني'].includes(firstWordArabic.slice(firstWordArabic.length - 3))
-                && firstWordArabic.length > 6
-                && hasSameRoot(firstWordArabic.slice(0, firstWordArabic.length - 3), previousFourLetterRoot))
-              {
-                // console.log(previousThreeLetterRoot);
-                // console.log(firstWordArabic.slice(0, firstWordArabic.length - 3));
-                // console.log(firstWordArabic);
-              } else if (['انى' ,'تئذ' ,'اني', 'ذاك'].includes(firstWordArabic.slice(firstWordArabic.length - 3))
-                && firstWordArabic.length > 5
-                && hasSameRoot(firstWordArabic.slice(0, firstWordArabic.length - 3), previousThreeLetterRoot))
-              {
-                // console.log(previousThreeLetterRoot);
-                // console.log(firstWordArabic.slice(0, firstWordArabic.length - 3));
-                // console.log(firstWordArabic);
               } else {
                 longRootsArray.push(firstWordArabic);
               }
             }
           }
-
         } 
     } else if (lineWordsArray.length > 1 && isNumberic.test(firstWord) && firstWord.length === 1){
       if (
